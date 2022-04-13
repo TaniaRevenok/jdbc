@@ -1,0 +1,98 @@
+package dataLayer;
+
+import model.dao.DevelopersDao;
+import ua.config.DatabaseManager;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Optional;
+
+public class DevelopersRepository implements Repository<DevelopersDao> {
+    private final DatabaseManager connector;
+    private static final String FIND_BY_ID = "SELECT * FROM developers d WHERE d.id = ? ;";
+    private static final String INSERT = "INSERT INTO developers (id, developer_name, developer_age, developer_sex, salary) VALUES (?, ?, ?, ?, ?)";
+    private static final String DELETE_BY_ID = "DELETE FROM developers WHERE id = ?";
+    private static final String UPDATE = "UPDATE developers SET developer_name = ?, developer_age = ?, developer_sex = ?, salary = ? WHERE id = ?";
+
+
+    public DevelopersRepository(DatabaseManager connector) {
+        this.connector = connector;
+    }
+
+
+    @Override
+    public DevelopersDao findById(Integer id) {
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(FIND_BY_ID)) {
+            preparedStatement.setInt(1, id);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            return mapToDevelopersDao(resultSet).orElseThrow(() -> new IllegalArgumentException(String.format("Developer with id %d not found", id)));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    public void create(DevelopersDao developersDao) {
+        try {
+            DevelopersDao exist = findById(developersDao.getDeveloperId());
+            System.out.println(String.format("Developer with %d already exist", exist.getDeveloperId()));
+        } catch (IllegalArgumentException e) {
+            try (Connection connection = connector.getConnection();
+                 PreparedStatement preparedStatement = connection.prepareStatement(INSERT)) {
+                preparedStatement.setInt(1, developersDao.getDeveloperId());
+                preparedStatement.setString(2, developersDao.getDeveloperName());
+                preparedStatement.setInt(3, developersDao.getDeveloperAge());
+                preparedStatement.setString(4, developersDao.getDeveloperSex());
+                preparedStatement.setInt(5, developersDao.getSalary());
+                preparedStatement.execute();
+            } catch (SQLException eq) {
+                eq.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public void delete(DevelopersDao developersDao) {
+        findById(developersDao.getDeveloperId());
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(DELETE_BY_ID)) {
+            preparedStatement.setInt(1, developersDao.getDeveloperId());
+            preparedStatement.execute();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public int update(DevelopersDao developersDao) {
+        int rowsUpdated = 0;
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE)) {
+            preparedStatement.setString(1, developersDao.getDeveloperName());
+            preparedStatement.setInt(2, developersDao.getDeveloperAge());
+            preparedStatement.setString(3, developersDao.getDeveloperSex());
+            preparedStatement.setInt(4, developersDao.getSalary());
+            preparedStatement.setInt(5, developersDao.getDeveloperId());
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return rowsUpdated;
+    }
+
+    private Optional<DevelopersDao> mapToDevelopersDao(ResultSet resultSet) throws SQLException {
+        DevelopersDao developersDao = null;
+        while (resultSet.next()) {
+            developersDao = new DevelopersDao();
+            developersDao.setDeveloperId(developersDao.getDeveloperId());
+            developersDao.setDeveloperName(developersDao.getDeveloperName());
+            developersDao.setDeveloperAge(developersDao.getDeveloperAge());
+            developersDao.setDeveloperSex(developersDao.getDeveloperSex());
+        }
+        return Optional.ofNullable(developersDao);
+    }
+}
